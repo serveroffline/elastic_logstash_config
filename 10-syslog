@@ -1,0 +1,54 @@
+filter {
+  if [type] == "syslog" {
+
+    grok {
+      match => { "message" => "%{IPTABLES}"}
+      add_tag => "Firewall"
+      remove_tag => "_grokparsefailure"
+    }
+
+    grok {
+      match => { "message" => "%{COLLECTL}"}
+      add_tag => "Performance"
+      remove_tag => "_grokparsefailure"
+    }
+
+    grok {
+      match => { "message" => "%{SYSLOGTIMESTAMP:syslog_timestamp} %{SYSLOGHOST:syslog_hostname} %{DATA:syslog_program}(?:\[%{POSINT:syslog_pid}\])?: %{GREEDYDATA:syslog_message}" }
+        add_field => [ "received_at", "%{@timestamp}" ]
+        add_field => [ "received_from", "%{host}" ]
+        remove_tag => "_grokparsefailure"
+    }
+
+    date {
+      match => [ "syslog_timestamp", "MMM  d HH:mm:ss", "MMM dd HH:mm:ss" ]
+    }
+
+    date {
+      match => [ "generated_at", "yyyyMMdd HH:mm:ss" ] }
+
+    if [src_ip]  {
+      geoip {
+        source => "src_ip"
+        target => "geoip"
+        add_field => [ "[geoip][coordinates]", "%{[geoip][longitude]}" ]
+        add_field => [ "[geoip][coordinates]", "%{[geoip][latitude]}"  ]
+      }
+      mutate {
+        convert => [ "[geoip][coordinates]", "float" ]
+      }
+    }
+
+    if [clientip]  {
+      geoip {
+        source => "clientip"
+        target => "geoip"
+        add_field => [ "[geoip][coordinates]", "%{[geoip][longitude]}" ]
+        add_field => [ "[geoip][coordinates]", "%{[geoip][latitude]}"  ]
+      }
+      mutate {
+        convert => [ "[geoip][coordinates]", "float" ]
+      }
+    }
+  }
+}
